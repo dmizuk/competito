@@ -1,0 +1,6 @@
+[package]
+name = "competito"
+version = "0.1.0"
+authors = ["Daiki Mizukami <mizukami1113@gmail.com>"]
+
+[dependencies]
