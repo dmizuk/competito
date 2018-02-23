@@ -654,110 +654,93 @@ pub mod util {
             }
         }
 
-        pub struct Scanner2<R, P1, P2> {
-            reader: R,
-            parser1: P1,
-            parser2: P2,
-        }
-
-        impl<R, P1, P2> Scanner2<R, P1, P2> {
-            pub fn into_inner(self) -> R {
-                self.reader
-            }
-
-            pub fn switch<T, U>(self) -> Scanner2<R, T::Parser, U::Parser>
-            where
-                T: FromByteStream,
-                U: FromByteStream,
-            {
-                self.switch_parsers(T::parser(), U::parser())
-            }
-
-            pub fn switch_parsers<Q1, Q2>(self, parser1: Q1, parser2: Q2)
-                -> Scanner2<R, Q1, Q2>
-            where
-                Q1: ParseByteStream,
-                Q2: ParseByteStream,
-            {
-                Scanner2 {
-                    reader: self.reader,
-                    parser1: parser1,
-                    parser2: parser2,
+        macro_rules! multi_scanner {
+            ($(
+                pub struct $S:ident {
+                    $reader:ident: $R:ident,
+                    $parser1:ident: $T1:ident -> $P1:ident $Q1:ident,
+                    $($parser:ident: $T:ident -> $P:ident $Q:ident,)*
                 }
-            }
-        }
-
-        impl<R: BufRead, P1, P2> Iterator for Scanner2<R, P1, P2>
-            where P1: ParseByteStream, P2: ParseByteStream
-        {
-            type Item = Result<(P1::Output, P2::Output)>;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                self.reader.scan_with(&mut self.parser1).map(|r| r.and_then(|t|
-                    self.reader.scan_with(&mut self.parser2)
-                        .expect("Scanner2: missing second item")
-                        .map(|u| (t, u))
-                ))
-            }
-        }
-
-        pub struct Scanner3<R, P1, P2, P3> {
-            reader: R,
-            parser1: P1,
-            parser2: P2,
-            parser3: P3,
-        }
-
-        impl<R, P1, P2, P3> Scanner3<R, P1, P2, P3> {
-            pub fn into_inner(self) -> R {
-                self.reader
-            }
-
-            pub fn switch<T, U, V>(self)
-                -> Scanner3<R, T::Parser, U::Parser, V::Parser>
-            where
-                T: FromByteStream,
-                U: FromByteStream,
-                V: FromByteStream,
-            {
-                self.switch_parsers(T::parser(), U::parser(), V::parser())
-            }
-
-            pub fn switch_parsers<Q1, Q2, Q3>(
-                self,
-                parser1: Q1,
-                parser2: Q2,
-                parser3: Q3,
-            )
-                -> Scanner3<R, Q1, Q2, Q3>
-            where
-                Q1: ParseByteStream,
-                Q2: ParseByteStream,
-            {
-                Scanner3 {
-                    reader: self.reader,
-                    parser1: parser1,
-                    parser2: parser2,
-                    parser3: parser3,
+            )*) => {$(
+                pub struct $S<$R, $P1, $($P),*> {
+                    $reader: $R,
+                    $parser1: $P1,
+                    $($parser: $P,)*
                 }
-            }
-        }
 
-        impl<R: BufRead, P1, P2, P3> Iterator for Scanner3<R, P1, P2, P3>
-            where P1: ParseByteStream, P2: ParseByteStream, P3: ParseByteStream
-        {
-            type Item = Result<(P1::Output, P2::Output, P3::Output)>;
+                impl<$R, $P1, $($P),*> $S<$R, $P1, $($P),*> {
+                    pub fn into_inner(self) -> $R {
+                        self.$reader
+                    }
 
-            fn next(&mut self) -> Option<Self::Item> {
-                self.reader.scan_with(&mut self.parser1).map(|r| r.and_then(|t|
-                    self.reader.scan_with(&mut self.parser2)
-                        .expect("Scanner3: missing second item")
-                        .and_then(|u| {
-                            self.reader.scan_with(&mut self.parser3)
-                                .expect("Scanner3: missing third item")
-                                .map(|v| (t, u, v))
+                    pub fn switch<$T1, $($T),*>(self)
+                        -> $S<$R, $T1::Parser, $($T::Parser),*>
+                    where
+                        $T1: FromByteStream,
+                        $($T: FromByteStream,)*
+                    {
+                        self.switch_parsers(T1::parser(), $($T::parser()),*)
+                    }
+
+                    pub fn switch_parsers<$Q1, $($Q),*>(
+                        self,
+                        $parser1: $Q1,
+                        $($parser: $Q,)*
+                    )
+                        -> $S<$R, $Q1, $($Q),*>
+                    where
+                        $Q1: ParseByteStream,
+                        $($Q: ParseByteStream,)*
+                    {
+                        $S {
+                            $reader: self.$reader,
+                            $parser1: $parser1,
+                            $($parser: $parser,)*
+                        }
+                    }
+                }
+
+                impl<$R: BufRead, $P1, $($P),*> Iterator
+                    for $S<$R, $P1, $($P),*>
+                where
+                    $P1: ParseByteStream,
+                    $($P: ParseByteStream,)*
+                {
+                    type Item = Result<($P1::Output, $($P::Output),*)>;
+
+                    fn next(&mut self) -> Option<Self::Item> {
+                        self.$reader.scan_with(&mut self.$parser1).map(|r| {
+                            let t1 = r?;
+                            $(
+                                // The binding's name is a dummy.
+                                let $parser = self.reader
+                                    .scan_with(&mut self.$parser)
+                                    .expect(concat!(
+                                        stringify!($S),
+                                        ": missing the item for `",
+                                        stringify!($parser),
+                                        "`"
+                                    ))?;
+                            )*
+                            Ok((t1, $($parser),*))
                         })
-                ))
+                    }
+                }
+            )*};
+        }
+
+        multi_scanner! {
+            pub struct Scanner2 {
+                reader: R,
+                parser1: T1 -> P1 Q1,
+                parser2: T2 -> P2 Q2,
+            }
+
+            pub struct Scanner3 {
+                reader: R,
+                parser1: T1 -> P1 Q1,
+                parser2: T2 -> P2 Q2,
+                parser3: T3 -> P3 Q3,
             }
         }
 

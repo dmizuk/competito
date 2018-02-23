@@ -29,7 +29,7 @@ fn scanner2() {
 }
 
 #[test]
-#[should_panic(expected = "Scanner2: missing second item")]
+#[should_panic(expected = "Scanner2: missing the item for `parser2`")]
 fn scanner2_missing_item() {
     b"a b c".scanner2::<(), ()>().unwrapped().skip(1).next();
 }
