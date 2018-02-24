@@ -36,9 +36,8 @@ fn scanner2_missing_item() {
 
 #[test]
 fn take_heads() {
-    let mut iter = IteratorMock(
-        &[Some(0), Some(1), None, Some(2), None, None, Some(3)]
-    ).cloned().take_heads();
+    let array = [Some(0), Some(1), None, Some(2), None, None, Some(3)];
+    let mut iter = IteratorMock(&array).cloned().take_heads();
 
     assert_eq!(iter.next().unwrap(), 0);
     assert_eq!(iter.next().unwrap(), 2);

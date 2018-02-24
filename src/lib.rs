@@ -388,7 +388,7 @@ pub mod util {
             fn square(self) -> Self;
         }
 
-        impl<M: Mul<Output=Self>+Copy> MulSquareExt for M {
+        impl<M: Mul<Output=M>+Copy> MulSquareExt for M {
             fn square(self) -> Self {
                 self * self
             }
