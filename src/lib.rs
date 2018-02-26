@@ -165,7 +165,9 @@ pub mod util {
 
                     fn eat(&mut self, s: &[u8]) {
                         for &b in s {
-                            let n = atoi(b).unwrap() as $t;
+                            let n: $t = atoi(b)
+                                .expect("UnsignedParser::eat: invalid digit")
+                                .into();
                             self.0 = self.0
                                 .checked_mul(10).unwrap()
                                 .checked_add(n).unwrap();
@@ -203,21 +205,35 @@ pub mod util {
                     fn eat(&mut self, s: &[u8]) {
                         use self::SignedParserState::*;
 
+                        const INVALID_DIGIT: &'static str =
+                            "SignedParser::eat: invalid digit";
+
                         match self.0 {
                             Signed(ref mut n) | Unsigned(ref mut n) => {
                                 for &b in s {
-                                    let d = atoi(b).unwrap() as $t;
+                                    let d = atoi(b).expect(INVALID_DIGIT) as $t;
                                     *n = n.checked_mul(10).unwrap()
                                         .checked_add(d).unwrap();
                                 }
+                            },
+                            SignedNone => if let Some((&b, rest))
+                                = s.split_first()
+                            {
+                                self.0 = if let Some(n) = atoi(b) {
+                                    Signed(n as $t)
+                                } else {
+                                    panic!(INVALID_DIGIT);
+                                };
+
+                                self.eat(rest);
                             },
                             None => if let Some((&b, rest)) = s.split_first() {
                                 self.0 = if let Some(n) = atoi(b) {
                                     Unsigned(n as $t)
                                 } else if b'-' == b {
-                                    Signed(0)
+                                    SignedNone
                                 } else {
-                                    panic!("SignedParser::eat: invalid digit");
+                                    panic!(INVALID_DIGIT);
                                 };
 
                                 self.eat(rest);
@@ -231,8 +247,8 @@ pub mod util {
                         match mem::replace(&mut self.0, None) {
                             Unsigned(n) => n,
                             Signed(n) => n.checked_neg().unwrap(),
-                            None => panic!(
-                                "SignedParser::take: no bytes were read"
+                            SignedNone | None => panic!(
+                                "SignedParser::take: unexpected end of input"
                             ),
                         }
                     }
@@ -243,6 +259,7 @@ pub mod util {
         enum SignedParserState<T> {
             Unsigned(T),
             Signed(T),
+            SignedNone,
             None,
         }
 

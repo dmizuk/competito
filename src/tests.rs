@@ -7,13 +7,13 @@ use util::prelude::*;
 #[test]
 fn scanner() {
     let mut input = [
-        b"-123 \r" as _,
+        b"-1234567890 \r" as _,
         b"\n  0 1 2 3\n" as _,
         b"1" as _, b"234" as _, b" 2345 3456 " as _, b" 1" as _, b"\n" as _,
     ];
     let mut scanner = BufReadMock(&mut input).scanner::<i32>().unwrapped();
 
-    assert!(scanner.by_ref().eq(vec![-123]));
+    assert!(scanner.by_ref().eq(vec![-1234567890]));
     assert!(scanner.by_ref().eq(vec![0, 1, 2, 3]));
     assert!(scanner.by_ref().eq(vec![1234, 2345, 3456, 1]));
     assert!(scanner.next().is_none());
@@ -31,7 +31,31 @@ fn scanner2() {
 #[test]
 #[should_panic(expected = "Scanner2: missing the item for `parser2`")]
 fn scanner2_missing_item() {
-    b"a b c".scanner2::<(), ()>().unwrapped().skip(1).next();
+    b"a b c".scanner2::<(), ()>().skip(1).next();
+}
+
+#[test]
+#[should_panic(expected = "UnsignedParser::eat: invalid digit")]
+fn unsigned_parser_invalid_slash() {
+    b"1/".scanner::<u32>().skip(1).next();
+}
+
+#[test]
+#[should_panic(expected = "UnsignedParser::eat: invalid digit")]
+fn unsigned_parser_invalid_colon() {
+    b":0".scanner::<u32>().skip(1).next();
+}
+
+#[test]
+#[should_panic(expected = "SignedParser::eat: invalid digit")]
+fn signed_parser_minus_in_middle() {
+    b"-3-1".scanner::<i32>().skip(1).next();
+}
+
+#[test]
+#[should_panic(expected = "SignedParser::take: unexpected end of input")]
+fn signed_parser_only_minus() {
+    b"-".scanner::<i32>().skip(1).next();
 }
 
 #[test]
