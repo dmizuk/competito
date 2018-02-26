@@ -587,7 +587,7 @@ pub mod util {
 
             loop {
                 let (consume, done) = {
-                    let mut buf = match r.fill_buf() {
+                    let buf = match r.fill_buf() {
                         Ok(b) => b,
                         Err(ref e) if e.kind() == ErrorKind::Interrupted => {
                             continue;
